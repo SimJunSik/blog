@@ -5,6 +5,7 @@ const bodyParser = require('koa-bodyparser');
 const mongoose = require('mongoose');
 
 const api = require('./api');
+const jwtMiddleware = require('./lib/jwtMiddleware');
 
 const app = new Koa();
 const router = new Router();
@@ -25,6 +26,7 @@ router.use('/api', api.routes());
 
 // Middleware
 app.use(bodyParser());
+app.use(jwtMiddleware);
 
 // 라우터 적용
 app.use(router.routes()).use(router.allowedMethods());
