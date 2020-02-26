@@ -1,8 +1,33 @@
 const Post = require('../../models/post');
 const mongoose = require('mongoose');
 const Joi = require('joi');
+const sanitizeHtml = require('sanitize-html');
 
 const { ObjectId } = mongoose.Types;
+
+const sanitizeOption = {
+  allowedTags: [
+    'h1',
+    'h2',
+    'blockquote',
+    'p',
+    'a',
+    'ul',
+    'ol',
+    'li',
+    'b',
+    'i',
+    'u',
+    's',
+    'img',
+  ],
+  allowedAttributes: {
+    a: ['href', 'name', 'target'],
+    img: ['src'],
+    li: ['class'],
+  },
+  allowedSchemes: ['data', 'http'],
+};
 
 exports.getPostById = async (ctx, next) => {
   const { id } = ctx.params;
@@ -58,7 +83,7 @@ exports.write = async ctx => {
   const { title, body, tags } = ctx.request.body;
   const post = new Post({
     title,
-    body,
+    body: sanitizeHtml(body, sanitizeOption),
     tags,
     user: ctx.state.user,
   });
@@ -68,6 +93,14 @@ exports.write = async ctx => {
   } catch (e) {
     ctx.throw(500, e);
   }
+};
+
+// html을 없애고 내용이 너무 길면 200자로 제한하는 함수
+const removeHtmlAndShorten = body => {
+  const filtered = sanitizeHtml(body, {
+    allowedTags: [],
+  });
+  return filtered.length < 200 ? filtered : `${filtered.slice(0, 200)}...`;
 };
 
 /*
@@ -100,8 +133,7 @@ exports.list = async ctx => {
       .map(post => post.toJSON())
       .map(post => ({
         ...post,
-        body:
-          post.body.length < 200 ? post.body : `${post.body.slice(0, 200)}...`,
+        body: removeHtmlAndShorten(post.body),
       }));
   } catch (e) {
     ctx.throw(500, e);
@@ -136,7 +168,7 @@ exports.remove = async ctx => {
         tags: ['수정', '태그']
     }
 */
-exports.update = ctx => {
+exports.update = async ctx => {
   const { id } = ctx.params;
 
   const schema = Joi.object().keys({
@@ -151,8 +183,14 @@ exports.update = ctx => {
     return;
   }
 
+  const nextData = { ...ctx.request.body };
+  // body 값이 주어졌으면 HTML 필터링
+  if (nextData.body) {
+    nextData.body = sanitizeHtml(nextData.body);
+  }
+
   try {
-    const post = Post.findByIdAndUpdate(id, ctx.request.body, {
+    const post = await Post.findByIdAndUpdate(id, nextData, {
       new: true,
     }).exec();
     if (!post) {
