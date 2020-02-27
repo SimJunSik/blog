@@ -1,1 +1,1 @@
-# simple blog with React + Node+ Koa + Redux + MongoDB
+# simple blog with React + Node + Koa + Redux + Redux-Saga + MongoDB
